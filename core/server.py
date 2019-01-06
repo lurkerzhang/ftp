@@ -12,11 +12,12 @@ import subprocess
 from core.file_md5 import get_file_md5
 # 队列实现线程池
 queue = queue.Queue(POOLSIZE)
+print(queue.maxsize)
 # 登陆用户列表,防止重复登陆
 logined__l = []
+
+
 # 用户类
-
-
 class ClientUser:
     def __init__(self, name):
         self.name = name
@@ -47,24 +48,31 @@ class FTPServer:
         while True:
             # 等待连接客户端
             conn, addr = self.ftp_server_socket.accept()
-            if queue.full():
+            if self.queue.full():
                 conn.send('full'.encode('utf-8'))
                 continue
             else:
                 conn.send('true'.encode('utf-8'))
-            self.queue.put((conn, addr))
-            # 创建线程与请求连接的客户端通信
-            t = threading.Thread(target=self.comm, args=(queue,))
-            t.setDaemon(True)
-            t.start()
+                self.queue.put((conn, addr))
+                print(self.queue.full())
+                # 创建线程与请求连接的客户端通信
+                t = CommThread(self.queue)
+                t.setDaemon(True)
+                t.start()
 
-    # 客户端通信
-    def comm(self, queue):
-        (conn, addr) = queue.get()
+
+# 客户端通信线程
+class CommThread(threading.Thread):
+    def __init__(self, queue):
+        threading.Thread.__init__(self)
+        self.queue = queue
+
+    def run(self):
+        (conn, addr) = self.queue.get()
         try:
             user = login(conn, addr)
             if not user:
-                queue.task_done()
+                self.queue.task_done()
                 return
             else:
                 while True:
@@ -88,12 +96,12 @@ class FTPServer:
                             user = cmd_exe(res, conn, user)
                     except ConnectionResetError:
                         break
-                queue.task_done()
+                self.queue.task_done()
                 logined__l.remove(user.name)
                 return
         except ConnectionResetError:
             print('%s强制关闭了与服务器的连接' % str(addr))
-            queue.task_done()
+            self.queue.task_done()
 
 
 # 处理客户端登陆
