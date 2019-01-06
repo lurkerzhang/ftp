@@ -1,17 +1,22 @@
 #!_*_coding:utf-8 _*_
 # __author__:"lurkerzhang"
 import socket
-from conf.settings import HOST_IP, HOST_PORT, SHARE_DIR, USER_DIR, USER_DATA
+from conf.settings import HOST_IP, HOST_PORT, SHARE_DIR, USER_DIR, USER_DATA, POOLSIZE
 import threading
+import queue
 import struct
 import json
 import os
 import configparser
 import subprocess
 from core.file_md5 import get_file_md5
-
-
+# 队列实现线程池
+queue = queue.Queue(POOLSIZE)
+# 登陆用户列表,防止重复登陆
+logined__l = []
 # 用户类
+
+
 class ClientUser:
     def __init__(self, name):
         self.name = name
@@ -23,7 +28,7 @@ class ClientUser:
 
 # TCP服务类
 class FTPServer:
-    def __init__(self, HOST):
+    def __init__(self, HOST, queue):
         # 在线用户容器
         self.online = []
         # 创建套接字
@@ -34,22 +39,32 @@ class FTPServer:
         self.ftp_server_socket.bind(HOST)
         # 最大监听10
         self.ftp_server_socket.listen(10)
+        self.queue = queue
+        self.logined_l = logined__l
 
     # 连接客户端（多用户）,无限循环服务
     def run(self):
         while True:
             # 等待连接客户端
             conn, addr = self.ftp_server_socket.accept()
-
+            if queue.full():
+                conn.send('full'.encode('utf-8'))
+                continue
+            else:
+                conn.send('true'.encode('utf-8'))
+            self.queue.put((conn, addr))
             # 创建线程与请求连接的客户端通信
-            t = threading.Thread(target=self.comm, args=(conn, addr))
+            t = threading.Thread(target=self.comm, args=(queue,))
+            t.setDaemon(True)
             t.start()
 
     # 客户端通信
-    def comm(self, conn, addr):
+    def comm(self, queue):
+        (conn, addr) = queue.get()
         try:
             user = login(conn, addr)
             if not user:
+                queue.task_done()
                 return
             else:
                 while True:
@@ -73,9 +88,12 @@ class FTPServer:
                             user = cmd_exe(res, conn, user)
                     except ConnectionResetError:
                         break
+                queue.task_done()
+                logined__l.remove(user.name)
                 return
         except ConnectionResetError:
             print('%s强制关闭了与服务器的连接' % str(addr))
+            queue.task_done()
 
 
 # 处理客户端登陆
@@ -98,9 +116,12 @@ def login(conn, addr):
                 conn.send('true'.encode('utf-8'))
                 password = conn.recv(1024).decode('utf-8')
                 if password == user_data.get(user_name, 'password'):
+                    if user_name in logined__l:
+                        conn.send('logined'.encode('utf-8'))
                     conn.send('true'.encode('utf-8'))
                     user = ClientUser(user_name)
                     user.is_logined = True
+                    logined__l.append(user_name)
                     user.quto = user_data.get(user_name, 'quto')
                     print('来自客户端%s的用户%s成功登陆到服务器' % (str(addr), user_name))
                     return user
@@ -275,5 +296,5 @@ def get_dir_size(p_doc):
 
 def main():
     HOST = (HOST_IP, HOST_PORT)
-    myFTPServer = FTPServer(HOST)
+    myFTPServer = FTPServer(HOST,queue)
     myFTPServer.run()

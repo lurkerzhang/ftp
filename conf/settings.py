@@ -7,3 +7,5 @@ SHARE_DIR = os.path.join(BASE_DIR, 'server_data_dir', 'share')
 HOST_IP = '127.0.0.1'
 HOST_PORT = 8080
 USER_DATA = os.path.join(BASE_DIR,'conf','user.ini')
+# 设置并发数
+POOLSIZE = 10

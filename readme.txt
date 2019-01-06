@@ -5,7 +5,7 @@ bin
     3、登录用户名：alex, egon, zhang   密码都是123456
 
 演示说明：
-1、客户端用户配置文件:config/user.ini  空间配额quto 单位为MB
+1、客户端用户配置文件:config/user.ini  空间配额quto 单位为MB, POOLSIZE 设置并发数
 2、client_data_dir文件夹是客户端用户存放数据的地方，不同的账号登录后在该文件夹下生成一个以账号名命名的文件夹
 3、server_data_dir文件夹是服务器端FTP存放数据的地方，该文件夹中share文件夹为各用户共享文件夹，可以下载上传文件；
    客户端登陆后，该文件夹下生成以用户名命名的用户家目录。

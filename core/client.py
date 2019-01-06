@@ -27,6 +27,9 @@ def login(client):
                 login_res = client.recv(1024).decode('utf-8')
                 if login_res == 'true':
                     return name
+                elif login_res == 'logined':
+                    print('%s 已登陆不能重复登陆'% name)
+                    return ''
                 else:
                     print('密码错误')
                     continue
@@ -38,6 +41,9 @@ def login(client):
 def main():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect(('127.0.0.1', 8080))
+    if client.recv(1024).decode('utf-8') == 'full':
+        print('服务器并发数超限稍候再试')
+        exit('bye')
     name = login(client)
     if not name:
         print('登陆失败')
@@ -49,6 +55,7 @@ def main():
     查看目录内容：dir 、dir [文件夹名称]
     返回上层文件夹：cd ..
     进入用户的家目录：cd .
+    进入用户共享目录：cd share
     下载当前目录文件：get [文件名] 支持续传
     上传本地目录（client_data_dir/[username]/）的文件到服务器：put [文件名]
     创建文件夹：mkdir [文件夹名]
